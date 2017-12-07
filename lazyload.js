@@ -112,6 +112,7 @@
                             }
                         } else {
                             entry.target.style.backgroundImage = "url(" + src + ")";
+                            entry.target.style.backgroundPosition = null;
                         }
                     }
                 });
@@ -144,6 +145,7 @@
                     }
                 } else {
                     image.style.backgroundImage = "url(" + src + ")";
+                    image.style.backgroundPosition = null;
                 }
             });
         },
