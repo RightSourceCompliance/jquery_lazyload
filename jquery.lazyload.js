@@ -119,6 +119,7 @@
                                     $self.attr("poster", original);
                                 } else {
                                     $self.css("background-image", "url('" + original + "')");
+                                    $self.css("background-position", null);
                                 }
                                 $self[settings.effect](settings.effect_speed);
                             }
