@@ -11,6 +11,10 @@
  *
  * Version:  1.10.0-dev
  *
+ *  Modified for RSC by Nate Chrysler and Will Strootman
+ *  
+ *  Forked: https://github.com/wstrootman/jquery_lazyload/tree/1.x
+ *  
  */
 
 (function($, window, document, undefined) {
@@ -25,13 +29,28 @@
             failure_limit   : 0,
             event           : "scroll.lazyload",
             effect          : "show",
-            container       : window,
+            container       : '#slotted',
             data_attribute  : "original",
             data_srcset     : "srcset",
             skip_invisible  : false,
             appear          : null,
             load            : null,
-            placeholder     : "data:image/gif;base64,R0lGODdhAQABAPAAAMPDwwAAACwAAAAAAQABAAACAkQBADs="
+            placeholder     : null,
+            swapImage       : function($self, original, srcset, settings) {
+                if ($self.is("img")) {
+                    $self.attr("src", original);
+                    if (srcset !== null) {
+                        $self.attr("srcset", srcset);
+                    }
+                } if ($self.is("video")) {
+                    $self.attr("poster", original);
+                } else {
+                    $self.css({
+                        "background-image": "url('" + original + "')",
+                        "background-position": "0px 0px"
+                    });
+                }
+            }
         };
 
         var timeoutId = -1;
@@ -44,14 +63,12 @@
                 if (settings.skip_invisible && !$this.is(":visible")) {
                     return;
                 }
-                if ($.abovethetop(this, settings) ||
-                    $.leftofbegin(this, settings)) {
-                    /* Nothing. */
-                } else if (!$.belowthefold(this, settings) &&
-                    !$.rightoffold(this, settings)) {
-                    $this.trigger("appear");
-                    /* if we found an image we'll load, reset the counter */
-                    counter = 0;
+                if ($.abovethetop(this, settings) || $.leftofbegin(this, settings)) {
+                        /* Nothing. */
+                } else if (!$.belowthefold(this, settings) && !$.rightoffold(this, settings)) {
+                        $this.trigger("appear");
+                        /* if we found an image we'll load, reset the counter */
+                        counter = 0;
                 } else {
                     if (++counter > settings.failure_limit) {
                         return false;
@@ -77,7 +94,7 @@
 
         /* Cache container as jQuery as object. */
         $container = (settings.container === undefined ||
-            settings.container === window) ? $window : $(settings.container);
+                      settings.container === window) ? $window : $(settings.container);
 
         /* Fire one scroll event per scroll. Not one scroll event per image. */
         if (0 === settings.event.indexOf("scroll")) {
@@ -117,21 +134,7 @@
 
                             if (original !== $self.attr("src")) {
                                 $self.hide();
-                                if ($self.is("img")) {
-                                    $self.attr("src", original);
-                                    if (srcset !== null) {
-                                        $self.attr("srcset", srcset);
-                                    }
-                                } if ($self.is("video")) {
-                                    $self.attr("poster", original);
-                                } else {
-                                    $self.css({
-                                        "background-image": "url('" + original + "')",
-                                        "background-position": "0px 0px"//,
-                                        //"background-repeat": "",
-                                        //"background-size": ""
-                                    });
-                                }
+                                settings.swapImage($self, original, srcset, settings);
                                 $self[settings.effect](settings.effect_speed);
                             }
 
@@ -167,7 +170,7 @@
                 setTimeout(function() {
                     for (var i=pos, imax=Math.min(allElements.length, pos+3); i>-1 && i<imax; i++) {
                         var neighbor = allElements[i];
-                        $(neighbor).trigger("appear-cascade");
+                         $(neighbor).trigger("appear-cascade");
                     }
                 }, 500);
             });
@@ -265,9 +268,9 @@
     };
 
     $.inviewport = function(element, settings) {
-        return !$.rightoffold(element, settings) && !$.leftofbegin(element, settings) &&
-            !$.belowthefold(element, settings) && !$.abovethetop(element, settings);
-    };
+         return !$.rightoffold(element, settings) && !$.leftofbegin(element, settings) &&
+                !$.belowthefold(element, settings) && !$.abovethetop(element, settings);
+     };
 
     /* Custom selectors for your convenience.   */
     /* Use as $("img:below-the-fold").something() or */
