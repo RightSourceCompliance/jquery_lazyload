@@ -11,27 +11,50 @@
  *
  * Version:  1.10.0-dev
  *
+ *  Modified for RSC by Nate Chrysler and Will Strootman
+ *  
+ *  Forked: https://github.com/wstrootman/jquery_lazyload/tree/1.x
+ *  
  */
 
 (function($, window, document, undefined) {
     var $window = $(window);
+    var win_event_listeners = {};
 
     $.fn.lazyload = function(options) {
         var elements = this;
+        var allElements = this;
         var $container;
         var settings = {
             threshold       : 0,
             failure_limit   : 0,
             event           : "scroll.lazyload",
             effect          : "show",
-            container       : window,
+            container       : '#slotted',
             data_attribute  : "original",
             data_srcset     : "srcset",
             skip_invisible  : false,
             appear          : null,
             load            : null,
-            placeholder     : "data:image/gif;base64,R0lGODdhAQABAPAAAMPDwwAAACwAAAAAAQABAAACAkQBADs="
+            placeholder     : null,
+            swapImage       : function($self, original, srcset, settings) {
+                if ($self.is("img")) {
+                    $self.attr("src", original);
+                    if (srcset !== null) {
+                        $self.attr("srcset", srcset);
+                    }
+                } if ($self.is("video")) {
+                    $self.attr("poster", original);
+                } else {
+                    $self.css({
+                        "background-image": "url('" + original + "')",
+                        "background-position": "0px 0px"
+                    });
+                }
+            }
         };
+
+        var timeoutId = -1;
 
         function update() {
             var counter = 0;
@@ -41,11 +64,9 @@
                 if (settings.skip_invisible && !$this.is(":visible")) {
                     return;
                 }
-                if ($.abovethetop(this, settings) ||
-                    $.leftofbegin(this, settings)) {
+                if ($.abovethetop(this, settings) || $.leftofbegin(this, settings)) {
                         /* Nothing. */
-                } else if (!$.belowthefold(this, settings) &&
-                    !$.rightoffold(this, settings)) {
+                } else if (!$.belowthefold(this, settings) && !$.rightoffold(this, settings)) {
                         $this.trigger("appear");
                         /* if we found an image we'll load, reset the counter */
                         counter = 0;
@@ -79,7 +100,12 @@
         /* Fire one scroll event per scroll. Not one scroll event per image. */
         if (0 === settings.event.indexOf("scroll")) {
             $container.off(settings.event).on(settings.event, function() {
-                return update();
+                if (0 <= timeoutId) {
+                    clearTimeout(timeoutId);
+                }
+                timeoutId = setTimeout(function(){
+                    update();
+                }, 100);
             });
         }
 
@@ -96,9 +122,8 @@
                 }
             }
 
-            /* When appear is triggered load original image. */
-            $self.one("appear", function() {
-                if (!this.loaded) {
+            var showImage = function() {
+                if (!self.loaded) {
                     if (settings.appear) {
                         var elements_left = elements.length;
                         settings.appear.call(self, elements_left, settings);
@@ -110,26 +135,17 @@
 
                             if (original !== $self.attr("src")) {
                                 $self.hide();
-                                if ($self.is("img")) {
-                                    $self.attr("src", original);
-                                    if (srcset !== null) {
-                                        $self.attr("srcset", srcset);
-                                    }
-                                } if ($self.is("video")) {
-                                    $self.attr("poster", original);
-                                } else {
-                                    $self.css("background-image", "url('" + original + "')");
-                                }
+                                settings.swapImage($self, original, srcset, settings);
                                 $self[settings.effect](settings.effect_speed);
                             }
 
                             self.loaded = true;
 
                             /* Remove image from array so it is not looped next time. */
-                            var temp = $.grep(elements, function(element) {
-                                return !element.loaded;
-                            });
-                            elements = $(temp);
+                            // var temp = $.grep(elements, function(element) {
+                            //     return !element.loaded;
+                            // });
+                            // elements = $(temp);
 
                             if (settings.load) {
                                 var elements_left = elements.length;
@@ -144,6 +160,25 @@
                             "srcset": $self.attr("data-" + settings.data_srcset) || ""
                         });
                 }
+            };
+
+            /* When appear is triggered load original image. */
+            $self.one("appear", function() {
+                // show thyself
+                showImage();
+                // find position and trigger cascade load on neighbors
+                var pos = allElements.index(self);
+                setTimeout(function() {
+                    for (var i=pos, imax=Math.min(allElements.length, pos+3); i>-1 && i<imax; i++) {
+                        var neighbor = allElements[i];
+                         $(neighbor).trigger("appear-cascade");
+                    }
+                }, 500);
+            });
+
+            /* When a nearby image (above?) is triggered, also load this one's original image. */
+            $self.one("appear-cascade", function() {
+                showImage();
             });
 
             /* When wanted event is triggered load original image */
@@ -157,10 +192,14 @@
             }
         });
 
-        /* Check if something appears when window is resized. */
-        $window.off("resize.lazyload").bind("resize.lazyload", function() {
+        /* Check if something appears when window is resized. Only maintain one event listener per container. */
+        if (win_event_listeners[settings.container]) {
+            $window.off("resize.lazyload", null, win_event_listeners[settings.container]);
+        }
+        win_event_listeners[settings.container] = function() {
             update();
-        });
+        };
+        $window.bind("resize.lazyload", win_event_listeners[settings.container]);
 
         /* With IOS5 force loading images when navigating with back button. */
         /* Non optimal workaround. */
