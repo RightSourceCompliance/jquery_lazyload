@@ -13,7 +13,7 @@
  *
  *  Modified for RSC by Nate Chrysler and Will Strootman
  *  
- *  Forked: https://github.com/wstrootman/jquery_lazyload/tree/1.x
+ *  Forked: https://github.com/RightSourceCompliance/jquery_lazyload/tree/1.x
  *  
  */
 
